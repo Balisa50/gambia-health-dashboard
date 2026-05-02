@@ -1,4 +1,6 @@
-"""Builds notebooks/gambia_analysis.ipynb from the analysis cells below."""
+# this script generates the jupyter notebook
+# easier than maintaining the .ipynb file by hand
+
 import nbformat as nbf
 from pathlib import Path
 

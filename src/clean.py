@@ -1,16 +1,6 @@
-"""
-Clean the raw indicator table.
-
-Choices made and why, so it's easy to follow:
-  - Drop indicators where I have under 5 observations (poverty, gini,
-    adult_literacy). Three points cannot show a trend honestly.
-  - Forward-fill ONLY for population and urban_population_pct, which
-    move slowly. Never forward-fill mortality or income — that hides
-    real gaps.
-  - Convert all numeric columns to float, drop years that have nothing
-    in any column.
-  - Save to data/clean/gambia_clean.csv ready for the notebook + plots.
-"""
+# clean the raw indicator data
+# drops indicators with too few observations
+# forward fills only the slow moving ones (population, urbanization)
 
 from pathlib import Path
 import pandas as pd
@@ -19,47 +9,41 @@ ROOT = Path(__file__).resolve().parents[1]
 RAW = ROOT / "data" / "raw" / "gambia_indicators_wide.csv"
 OUT = ROOT / "data" / "clean" / "gambia_clean.csv"
 
-# Indicators with fewer than 5 obs are not useful for a trend story.
-# We keep them in raw/ for reference but exclude from the clean table.
-DROP_LOW_COVERAGE = {
-    "poverty_headcount_national_pct",  # only 3 obs
-    "gini_index",                      # only 5 obs
-    "adult_literacy_pct",              # only 4 obs
-}
+# these have less than 5 data points so not useful for trends
+drop_cols = ["poverty_headcount_national_pct", "gini_index", "adult_literacy_pct"]
 
-# Slow-moving indicators where forward-fill is safe.
-FORWARD_FILL = {"population_total", "urban_population_pct"}
+# safe to forward fill these (population doesnt jump)
+ffill_cols = ["population_total", "urban_population_pct"]
 
 
-def clean() -> pd.DataFrame:
+def clean():
     df = pd.read_csv(RAW, index_col="year")
     df.index = df.index.astype(int)
     df = df.sort_index()
 
-    # 1. Drop low-coverage columns
-    keep = [c for c in df.columns if c not in DROP_LOW_COVERAGE]
-    df = df[keep]
+    # drop low coverage columns
+    df = df.drop(columns=[c for c in drop_cols if c in df.columns])
 
-    # 2. Coerce types
+    # make sure everything is numeric
     df = df.apply(pd.to_numeric, errors="coerce")
 
-    # 3. Targeted forward fill
-    for col in FORWARD_FILL:
+    # forward fill the slow moving stuff
+    for col in ffill_cols:
         if col in df.columns:
             df[col] = df[col].ffill()
 
-    # 4. Drop years that are entirely empty (defensive)
+    # drop fully empty years
     df = df.dropna(how="all")
-
     return df
 
 
-def main() -> None:
+def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     df = clean()
     df.to_csv(OUT)
-    print(f"clean: {df.shape[0]} years x {df.shape[1]} indicators -> {OUT}")
-    print(f"year range: {df.index.min()} to {df.index.max()}")
+    print(f"clean shape: {df.shape}")
+    print(f"years: {df.index.min()} to {df.index.max()}")
+    print(f"saved to {OUT}")
 
 
 if __name__ == "__main__":
